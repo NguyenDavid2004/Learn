@@ -27,6 +27,11 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 		studentGroup.GET("/:id", func(c *gin.Context) { controllers.GetStudent(c, db) })
 		studentGroup.GET("/search", func(c *gin.Context) { controllers.SearchStudents(c, db) })
 	}
+	subjectGroup := r.Group("/subjects")
+	{
+		subjectGroup.POST("/", TeacherOnly, func(c *gin.Context) { controllers.AddSubject(c, db) })
+		subjectGroup.POST("/assign", TeacherOnly, func(c *gin.Context) { controllers.AssignSubjectToStudent(c, db) })
+	}
 
 	return r
 }
