@@ -43,7 +43,6 @@ func AddStudent(c *gin.Context, db *gorm.DB) {
 		Grade:   studentData.Grade,
 	}
 
-	// Add student to the database
 	if err := models.AddStudent(db, &student); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add student"})
 		return
