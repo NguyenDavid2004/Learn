@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -9,13 +10,30 @@ type User struct {
 	ID       uint   `gorm:"primaryKey"`
 	Email    string `json:"email" gorm:"unique"`
 	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
+func HashPassword(password string) (string, error) {
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedBytes), nil
+}
+
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
 func RegisterUser(db *gorm.DB, user *User) error {
+	hashedPassword, err := HashPassword(user.Password)
+	if err != nil {
+		return err
+	}
+	user.Password = hashedPassword
+
 	return db.Create(user).Error
-}
-func UpdateStudentGrade(db *gorm.DB, id uint, grade float64) error {
-	return db.Model(&Student{}).Where("id = ?", id).Update("grade", grade).Error
 }
 
 func AuthenticateUser(db *gorm.DB, email string, password string) (*User, error) {
@@ -25,6 +43,9 @@ func AuthenticateUser(db *gorm.DB, email string, password string) (*User, error)
 		return nil, errors.New("invalid email or password")
 	}
 	return &user, nil
+}
+func UpdateStudentGrade(db *gorm.DB, id uint, grade float64) error {
+	return db.Model(&Student{}).Where("id = ?", id).Update("grade", grade).Error
 }
 
 type Student struct {

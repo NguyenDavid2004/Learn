@@ -2,41 +2,48 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
 	"management_student/models"
 	"net/http"
+	"time"
 )
 
-func Register(c *gin.Context, db *gorm.DB) {
-	var registrationData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+var JwtKey = []byte("your_secret_key")
+
+type Claims struct {
+	Email string `json:"email"`
+	Role  string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+func GenerateJWT(email, role string) (string, error) {
+	expirationTime := time.Now().Add(24 * time.Hour)
+	claims := &Claims{
+		Email: email,
+		Role:  role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
 	}
 
-	// Bind JSON body to registrationData struct
-	if err := c.ShouldBindJSON(&registrationData); err != nil {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(JwtKey)
+}
+
+func Register(c *gin.Context, db *gorm.DB) {
+	var user models.User
+	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	// Create a new user with the provided information
-	user := models.User{
-		Email:    registrationData.Email,
-		Password: registrationData.Password,
-	}
-
-	// Register the user in the database
 	if err := models.RegisterUser(db, &user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Registration failed"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Registration successful",
-		"user": gin.H{
-			"email": user.Email,
-		},
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
 }
 
 func Login(c *gin.Context, db *gorm.DB) {
@@ -45,24 +52,22 @@ func Login(c *gin.Context, db *gorm.DB) {
 		Password string `json:"password"`
 	}
 
-	// Bind JSON body to loginData struct
 	if err := c.ShouldBindJSON(&loginData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	// Authenticate user
-	user, err := models.AuthenticateUser(db, loginData.Email, loginData.Password)
+	dbUser, err := models.AuthenticateUser(db, loginData.Email, loginData.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
-	// Return the user's role and email
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"user": gin.H{
-			"email": user.Email,
-		},
-	})
+	token, err := GenerateJWT(dbUser.Email, dbUser.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }

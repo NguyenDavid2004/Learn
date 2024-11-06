@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"management_student/models"
+	"management_student/utils"
 	"net/http"
 	"strconv"
 )
@@ -53,12 +54,22 @@ func AddStudent(c *gin.Context, db *gorm.DB) {
 }
 
 func DeleteStudent(c *gin.Context, db *gorm.DB) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	if err := models.DeleteStudent(db, uint(id)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete student"})
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrInvalidData})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Student deleted successfully"})
+
+	if err := models.DeleteStudent(db, uint(id)); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": utils.ErrNotFound})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrInternal})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": utils.MsgSuccess})
 }
 
 func UpdateStudent(c *gin.Context, db *gorm.DB) {
