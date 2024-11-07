@@ -12,7 +12,8 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 
 	r.POST("/register", func(c *gin.Context) { controllers.Register(c, db) })
 	r.POST("/login", func(c *gin.Context) { controllers.Login(c, db) })
-
+	r.POST("/forgot-password", func(c *gin.Context) { controllers.ForgotPassword(c, db) })
+	r.POST("/reset-password", func(c *gin.Context) { controllers.ResetPassword(c, db) })
 	r.Use(AuthMiddleware())
 
 	studentGroup := r.Group("/students")
